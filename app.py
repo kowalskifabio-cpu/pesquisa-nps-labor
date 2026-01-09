@@ -19,20 +19,19 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- INCLUSÃO DA LOGO ---
-# Esta é a URL da logo que peguei direto do seu site
-st.image("https://laborsmt.com.br/wp-content/uploads/2023/04/logo-labor.png", width=250)
+# --- INCLUSÃO DA LOGO (ARQUIVO LOCAL) ---
+# Agora o script procura o arquivo que você subiu no GitHub
+st.image("logo.png", width=250)
 
 st.title("Sua opinião é fundamental")
 st.write("A **Labor Engenharia** quer ouvir você para melhorar continuamente nossos serviços.")
 
-# --- PERGUNTA 1: NPS ---
+# --- O RESTANTE DO CÓDIGO SEGUE IGUAL ---
 nota = st.select_slider(
     "Em uma escala de 0 a 10, o quanto você recomendaria a Labor Engenharia para outra empresa?",
     options=list(range(11)), value=10
 )
 
-# --- LÓGICA CONDICIONAL ---
 if nota >= 9:
     msg = "O que mais contribuiu para você dar essa nota à Labor Engenharia?"
 elif nota >= 7:
@@ -43,7 +42,6 @@ else:
 
 feedback = st.text_area(msg)
 
-# --- PERGUNTA 3: PONTOS-CHAVE ---
 st.divider()
 st.subheader("Como você avalia os pontos abaixo?")
 opcoes = ["Péssimo", "Ruim", "Regular", "Bom", "Excelente"]
@@ -57,11 +55,9 @@ with col2:
     st.select_slider("Atendimento e suporte", options=opcoes, value="Excelente")
     st.select_slider("Custo-benefício dos serviços", options=opcoes, value="Excelente")
 
-# --- CONTATO ---
 st.divider()
 contato = st.radio("Caso seja necessário, você autoriza nosso contato para dar continuidade a melhorias?", ["Sim", "Não"], index=1)
 
-# --- BOTÃO DE ENVIO ---
 if st.button("Enviar Avaliação"):
     st.balloons()
     st.success("Obrigado pela parceria! Suas respostas foram enviadas à diretoria.")
