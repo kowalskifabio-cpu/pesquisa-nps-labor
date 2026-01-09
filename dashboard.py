@@ -5,62 +5,76 @@ import plotly.express as px
 from io import BytesIO
 from datetime import datetime
 
-st.set_page_config(page_title="Dashboard Labor Engenharia", layout="wide")
+# Configuração da página
+st.set_page_config(page_title="Gestão NPS - Labor Engenharia", layout="wide")
+
+# Estilo Laranja Labor
+st.markdown("<style>.stMetric {background-color: #fdf2e9; padding: 10px; border-radius: 10px;}</style>", unsafe_allow_html=True)
+
+# Logo e Título na Sidebar
 st.sidebar.image("logo.png", width=150)
-st.sidebar.title("Filtros e Relatórios")
+st.sidebar.title("Filtros Estratégicos")
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 try:
+    # Carregamento de dados
     df = conn.read(ttl=0)
-    # Garante que 'data' seja tratada corretamente
     df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
     df = df.dropna(subset=['data'])
 
-    # Filtros de Data
-    min_date = df['data'].min().date()
-    max_date = df['data'].max().date()
-    data_sel = st.sidebar.date_input("Período", [min_date, max_date])
+    # Criar colunas de suporte para filtros de tempo
+    df['ano'] = df['data'].dt.year
+    df['mes'] = df['data'].dt.strftime('%m - %B')
 
-    if len(data_sel) == 2:
-        df_filtrado = df[(df['data'].dt.date >= data_sel[0]) & (df['data'].dt.date <= data_sel[1])]
-    else:
-        df_filtrado = df
+    # --- FILTROS NA SIDEBAR ---
+    
+    # 1. Filtro por Empresa
+    lista_empresas = ["Todas"] + sorted(df['empresa'].unique().tolist())
+    empresa_sel = st.sidebar.selectbox("Filtrar por Empresa", lista_empresas)
 
-    # Exportar Excel
-    def to_excel(df_to_save):
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df_to_save.to_excel(writer, index=False, sheet_name='NPS')
-        return output.getvalue()
+    # 2. Filtro por Ano
+    lista_anos = ["Todos"] + sorted(df['ano'].unique().astype(str).tolist())
+    ano_sel = st.sidebar.selectbox("Filtrar por Ano", lista_anos)
 
-    st.sidebar.download_button("📥 Baixar Excel", to_excel(df_filtrado), "NPS_Labor.xlsx")
+    # 3. Filtro por Mês
+    lista_meses = ["Todos"] + sorted(df['mes'].unique().tolist())
+    mes_sel = st.sidebar.selectbox("Filtrar por Mês", lista_meses)
 
-    # Métricas
-    st.title("📊 Indicadores Labor Engenharia")
+    # --- NOVO FILTRO: INDICADOR PARA O GRÁFICO DE EVOLUÇÃO ---
+    st.sidebar.divider()
+    st.sidebar.subheader("Análise do Gráfico")
+    indicadores_map = {
+        "Nota Geral (NPS)": "nota",
+        "Clareza Técnica": "clareza",
+        "Prazos": "prazos",
+        "Comunicação": "comunicacao",
+        "Atendimento": "atendimento",
+        "Custo-benefício": "custo"
+    }
+    analise_sel = st.sidebar.selectbox("Visualizar evolução de:", list(indicadores_map.keys()))
+    coluna_analise = indicadores_map[analise_sel]
+
+    # Aplicação dos Filtros de Dados
+    df_filtrado = df.copy()
+    if empresa_sel != "Todas":
+        df_filtrado = df_filtrado[df_filtrado['empresa'] == empresa_sel]
+    if ano_sel != "Todos":
+        df_filtrado = df_filtrado[df_filtrado['ano'] == int(ano_sel)]
+    if mes_sel != "Todos":
+        df_filtrado = df_filtrado[df_filtrado['mes'] == mes_sel]
+
+    # --- DASHBOARD ---
+    st.title(f"📊 Dashboard Labor Engenharia")
+    if empresa_sel != "Todas":
+        st.caption(f"Visualizando dados exclusivos da empresa: **{empresa_sel}**")
+    
+    # Métricas de Performance
     total = len(df_filtrado)
-    nps = ((len(df_filtrado[df_filtrado['nota'] >= 9]) - len(df_filtrado[df_filtrado['nota'] <= 6])) / total * 100) if total > 0 else 0
-    
-    c1, c2 = st.columns(2)
-    c1.metric("Total de Pesquisas", total)
-    c2.metric("NPS", f"{nps:.1f}")
+    promotores = len(df_filtrado[df_filtrado['nota'] >= 9]) if total > 0 else 0
+    detratores = len(df_filtrado[df_filtrado['nota'] <= 6]) if total > 0 else 0
+    nps = ((promotores - detratores) / total * 100) if total > 0 else 0
 
-    # Gráficos de Pizza
-    st.subheader("🍕 Avaliação por Indicador")
-    indicadores = ["clareza", "prazos", "comunicacao", "atendimento", "custo"]
-    cols = st.columns(len(indicadores))
-    
-    for i, ind in enumerate(indicadores):
-        if ind in df_filtrado.columns:
-            with cols[i]:
-                fig = px.pie(df_filtrado, names=ind, title=ind.capitalize())
-                fig.update_layout(showlegend=False)
-                st.plotly_chart(fig, use_container_width=True)
-
-    # Gráfico de Linha
-    st.subheader("📈 Evolução")
-    df_l = df_filtrado.groupby(df_filtrado['data'].dt.date)['nota'].mean().reset_index()
-    st.plotly_chart(px.line(df_l, x='data', y='nota', markers=True).update_traces(line_color='#f37021'), use_container_width=True)
-
-except Exception as e:
-    st.info("Aguardando novas respostas compatíveis com a planilha.")
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Respostas", total)
+    m2.metric("NPS Geral", f"{nps:.1f
