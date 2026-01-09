@@ -41,9 +41,11 @@ contato = st.radio("Autoriza nosso contato para melhorias?", ["Sim", "Não"], in
 # Botão de Envio
 if st.button("Enviar Avaliação"):
     try:
+        # Tenta conectar
         conn = st.connection("gsheets", type=GSheetsConnection)
         
-        nova_linha = {
+        # Prepara a nova linha como um DataFrame (tabela)
+        nova_linha = pd.DataFrame([{
             "data": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
             "nota": nota,
             "feedback": feedback,
@@ -53,13 +55,27 @@ if st.button("Enviar Avaliação"):
             "atendimento": p4,
             "custo": p5,
             "contato": contato
-        }
+        }])
         
-        df_atual = conn.read(ttl=0)
-        df_final = pd.concat([df_atual, pd.DataFrame([nova_linha])], ignore_index=True)
+        # Tenta ler a planilha. Se falhar (vazia), df_final é apenas a nova_linha
+        try:
+            df_atual = conn.read(ttl=0)
+            if df_atual is not None and not df_atual.empty:
+                df_final = pd.concat([df_atual, nova_linha], ignore_index=True)
+            else:
+                df_final = nova_linha
+        except:
+            df_final = nova_linha
+        
+        # Limpa colunas vazias que o Sheets às vezes cria
+        df_final = df_final.dropna(axis=1, how='all')
+        
+        # Envia para a planilha
         conn.update(data=df_final)
         
         st.balloons()
         st.success("Agradecemos seu tempo e sua parceria! Suas respostas serão analisadas pela nossa diretoria.")
+        
     except Exception as e:
-        st.error("Erro ao enviar. Verifique se a planilha foi compartilhada com o e-mail da Service Account como EDITOR.")
+        st.error("Erro técnico ao salvar. Verifique se o e-mail 'streamlit-labor@...' foi adicionado como EDITOR na planilha.")
+        st.info(f"Detalhe do erro: {e}")
